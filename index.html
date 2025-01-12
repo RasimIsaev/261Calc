@@ -84,70 +84,83 @@
             const objects = document.querySelectorAll('.object');
             let resultText = '';
 
-            objects.forEach((object, index) => {
-                const name = object.querySelector('.object-name').value || `Объект ${index + 1}`;
-                const payment = parseFloat(object.querySelector('.monthly-payment').value);
-                const startPeriod = object.querySelector('.start-period').value;
-                const endPeriod = object.querySelector('.end-period').value;
 
-                if (!payment || !startPeriod || !endPeriod) {
-                    resultText += `Ошибка: Заполните все данные для <strong>${name}</strong>\n`;
-                    return;
-                }
+    let grandTotalDebt = 0; // Переменная для общего долга
+    let grandTotalInterest = 0; // Переменная для общих процентов
 
-                const startDate = new Date(startPeriod + '-01');
-                const endDate = new Date(endPeriod + '-01');
-                let currentDate = new Date(startDate);
+    objects.forEach((object, index) => {
+        const name = object.querySelector('.object-name').value || `Объект ${index + 1}`;
+        const payment = parseFloat(object.querySelector('.monthly-payment').value);
+        const startPeriod = object.querySelector('.start-period').value;
+        const endPeriod = object.querySelector('.end-period').value;
 
-                let totalDebt = 0;
-                let totalInterest = 0;
-                let cumulativeDebt = 0;
+        if (!payment || !startPeriod || !endPeriod) {
+            resultText += `Ошибка: Заполните все данные для <strong>${name}</strong>\n`;
+            return;
+        }
 
-                resultText += `\n<strong>${name}</strong>:\n`;
+        const startDate = new Date(startPeriod + '-01');
+        const endDate = new Date(endPeriod + '-01');
+        let currentDate = new Date(startDate);
 
-                while (currentDate <= endDate) {
-                    // Инициализируем долг сразу при первой итерации
-                    if (currentDate.getTime() === startDate.getTime()) {
-                        cumulativeDebt = payment;
-                    }
+        let totalDebt = 0;
+        let totalInterest = 0;
+        let cumulativeDebt = 0;
 
-                    const year = currentDate.getFullYear();
-                    const month = currentDate.getMonth();
-                    const daysInMonth = new Date(year, month + 1, 0).getDate();
-                    const daysInYear = (year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0)) ? 366 : 365;
+        resultText += `\n<strong>${name}</strong>:\n`;
 
-                    // Находим все изменения ставки в текущем месяце
-                    const rateChanges = getRateChangesForMonth(currentDate, rates);
-                    let monthlyInterest = 0;
-                    
-                    rateChanges.forEach(period => {
-                        const interest = (cumulativeDebt * period.days / daysInYear) * (period.rate / 100);
-                        monthlyInterest += interest;
-                        
-                        resultText += `Период: ${period.start.toLocaleDateString('ru')} - ${period.end.toLocaleDateString('ru')}, ` +
-                                     `Ставка: ${period.rate}%, ` +
-                                     `Дней: ${period.days}, ` +
-                                     `Накопленный долг: ${cumulativeDebt.toFixed(2)}, ` +
-                                     `Формула: (${cumulativeDebt.toFixed(2)} * ${period.days} / ${daysInYear}) * (${period.rate}%)\n` +
-                                     `Проценты за период: ${interest.toFixed(2)}\n`;
-                    });
+        while (currentDate <= endDate) {
+            if (currentDate.getTime() === startDate.getTime()) {
+                cumulativeDebt = payment;
+            }
 
-                    totalInterest += monthlyInterest;
-                    cumulativeDebt += payment;
-                    currentDate.setMonth(currentDate.getMonth() + 1);
-                }
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const daysInYear = (year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0)) ? 366 : 365;
 
-                const monthsCount = ((endDate.getFullYear() - startDate.getFullYear()) * 12 + (endDate.getMonth() - startDate.getMonth() + 1));
-                const fixedTotalDebt = payment * monthsCount;
+            const rateChanges = getRateChangesForMonth(currentDate, rates);
+            let monthlyInterest = 0;
 
-                resultText += `Итоговый долг: ${fixedTotalDebt.toFixed(2)}\n`;
-                resultText += `Итоговые проценты: ${totalInterest.toFixed(2)}\n`;
+            rateChanges.forEach(period => {
+                const interest = (cumulativeDebt * period.days / daysInYear) * (period.rate / 100);
+                monthlyInterest += interest;
+
+                resultText += `Период: ${period.start.toLocaleDateString('ru')} - ${period.end.toLocaleDateString('ru')}, ` +
+                              `Ставка: ${period.rate}%, ` +
+                              `Дней: ${period.days}, ` +
+                              `Накопленный долг: ${cumulativeDebt.toFixed(2)}, ` +
+                              `Формула: (${cumulativeDebt.toFixed(2)} * ${period.days} / ${daysInYear}) * (${period.rate}%)\n` +
+                              `Проценты за период: ${interest.toFixed(2)}\n`;
             });
 
-            if (resultText === '') resultText = 'Добавьте хотя бы один объект.';
+            totalInterest += monthlyInterest;
+            cumulativeDebt += payment;
+            currentDate.setMonth(currentDate.getMonth() + 1);
+        }
 
-            resultContainer.innerHTML = resultText;
-        });
+        const monthsCount = ((endDate.getFullYear() - startDate.getFullYear()) * 12 + (endDate.getMonth() - startDate.getMonth() + 1));
+        const fixedTotalDebt = payment * monthsCount;
+
+        resultText += `Итоговый долг: ${fixedTotalDebt.toFixed(2)}\n`;
+        resultText += `Итоговые проценты: ${totalInterest.toFixed(2)}\n`;
+
+        // Суммируем общий итог
+        grandTotalDebt += fixedTotalDebt;
+        grandTotalInterest += totalInterest;
+    });
+
+    // Добавляем общий итог в результат
+    if (resultText === '') {
+        resultText = 'Добавьте хотя бы один объект.';
+    } else {
+        resultText += `\n<strong>Общий итог:</strong>\n`;
+        resultText += `Долг: ${grandTotalDebt.toFixed(2)}\n`;
+        resultText += `Проценты: ${grandTotalInterest.toFixed(2)}\n`;
+    }
+
+    resultContainer.innerHTML = resultText;
+});
 
         copyResultButton.addEventListener('click', () => {
             navigator.clipboard.writeText(resultContainer.textContent).then(() => {
@@ -203,7 +216,7 @@
 
             return periods;
         }
-document.getElementById('exportToDocx').addEventListener('click', () => {
+ document.getElementById('exportToDocx').addEventListener('click', () => {
         const resultContent = document.getElementById('result').innerText;
 
     // Собираем наименования объектов из полей ввода
@@ -218,7 +231,9 @@ document.getElementById('exportToDocx').addEventListener('click', () => {
     const paragraphs = lines.map(line => {
         // Проверяем, содержит ли строка одно из наименований объектов
         const isObjectName = objectNames.some(name => line.includes(name));
-        
+        const isBoldLine = line.startsWith('Общий итог:') || 
+                           line.startsWith('Долг:') || 
+                           line.startsWith('Проценты:');        
         return new docx.Paragraph({
             alignment: docx.AlignmentType.JUSTIFIED,
             spacing: {
@@ -231,7 +246,7 @@ document.getElementById('exportToDocx').addEventListener('click', () => {
                     text: line.trim(), // Убираем лишние пробелы
                     font: "Times New Roman",
                     size: 24, // Размер шрифта (12pt)
-                    bold: isObjectName, // Жирный текст для строк с именем объекта
+                    bold: isBoldLine || isObjectName, // Жирный текст для строк с именем объекта и общего итога
                 }),
             ],
         });
