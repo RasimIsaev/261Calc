@@ -285,7 +285,7 @@ const doc = new docx.Document({
     docx.Packer.toBlob(doc).then((blob) => {
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
-        link.download = "Расчет.docx";
+        link.download = "Расчет ФЗ 261.docx";
         link.click();
     });
 });
